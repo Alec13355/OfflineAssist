@@ -1,0 +1,68 @@
+{
+  "name": "offline-assist",
+  "displayName": "OfflineAssist",
+  "description": "VS Code extension that exposes Foundry Local models through the language model picker.",
+  "version": "0.1.1",
+  "publisher": "alecharrison",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "enabledApiProposals": [
+    "chatProvider@4"
+  ],
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "offlineAssist.downloadModel",
+        "title": "OfflineAssist: Download Chat Model"
+      },
+      {
+        "command": "offlineAssist.openChat",
+        "title": "OfflineAssist: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "offlineAssist.refreshModels",
+        "title": "OfflineAssist: Refresh Model Catalog"
+      }
+    ],
+    "configuration": {
+      "title": "OfflineAssist",
+      "properties": {
+        "offlineAssist.appName": {
+          "type": "string",
+          "default": "offline-assist",
+          "description": "Application name passed to the Foundry Local SDK when initializing the local runtime."
+        }
+      }
+    },
+    "languageModelChatProviders": [
+      {
+        "vendor": "offline-assist",
+        "displayName": "OfflineAssist"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p ."
+  },
+  "dependencies": {
+    "foundry-local-sdk": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/vscode": "^1.101.0",
+    "typescript": "^5.9.3"
+  },
+  "icon": "OfflineAssist.png"
+}
