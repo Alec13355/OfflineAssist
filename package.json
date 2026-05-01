@@ -2,7 +2,7 @@
   "name": "offline-assist",
   "displayName": "OfflineAssist",
   "description": "VS Code extension that exposes Foundry Local models through the language model picker.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "alecharrison",
   "type": "module",
   "engines": {
