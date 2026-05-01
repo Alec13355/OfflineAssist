@@ -1,0 +1,40 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">OfflineAssist VS Code Extension Icon</title>
+  <desc id="desc">Monochrome robot assistant icon with an offline Wi-Fi symbol.</desc>
+
+  <style>
+    .stroke { stroke: currentColor; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+    .stroke-sm { stroke: currentColor; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .fill { fill: currentColor; }
+  </style>
+
+  <!-- Uses currentColor so it can be tinted by the host app. Defaults to black. -->
+  <g color="#000000">
+    <!-- Antenna -->
+    <path class="stroke-sm" d="M64 24V15" />
+    <circle class="fill" cx="64" cy="11" r="5" />
+
+    <!-- Ears -->
+    <path class="stroke" d="M33 54C25 54 20 60 20 68C20 76 25 82 33 82" />
+    <path class="stroke" d="M95 54C103 54 108 60 108 68C108 76 103 82 95 82" />
+
+    <!-- Robot speech-bubble head -->
+    <path class="stroke" d="M40 36H88C99 36 106 43 106 54V80C106 91 99 98 88 98H76L66 111C64 114 59 112 59 108V98H40C29 98 22 91 22 80V54C22 43 29 36 40 36Z" />
+
+    <!-- Face screen -->
+    <rect class="stroke-sm" x="36" y="52" width="56" height="31" rx="14" />
+
+    <!-- Eyes -->
+    <rect class="fill" x="48" y="62" width="7" height="12" rx="3.5" />
+    <rect class="fill" x="73" y="62" width="7" height="12" rx="3.5" />
+
+    <!-- Smile -->
+    <path class="stroke-sm" d="M56 76C58 80 61 82 64 82C67 82 70 80 72 76" />
+
+    <!-- Offline Wi-Fi mark -->
+    <path class="stroke-sm" d="M84 24C94 20 106 22 114 30" />
+    <path class="stroke-sm" d="M91 36C96 34 103 35 108 40" />
+    <path class="stroke-sm" d="M99 48L100 48" />
+    <path class="stroke" d="M82 18L116 52" />
+  </g>
+</svg>

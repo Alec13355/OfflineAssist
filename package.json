@@ -35,6 +35,30 @@
         "title": "OfflineAssist: Refresh Model Catalog"
       }
     ],
+    "viewContainers": {
+      "activitybar": [
+        {
+          "id": "offlineAssist",
+          "title": "OfflineAssist",
+          "icon": "media/offline-assist-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "offlineAssist": [
+        {
+          "id": "offlineAssist.launcher",
+          "name": "Chat"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "offlineAssist.launcher",
+        "contents": "[Open Chat](command:offlineAssist.openChat)\n\nOpen OfflineAssist chat mode.",
+        "when": "true"
+      }
+    ],
     "configuration": {
       "title": "OfflineAssist",
       "properties": {

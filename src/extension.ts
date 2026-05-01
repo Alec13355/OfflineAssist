@@ -1221,9 +1221,14 @@ export function activate(context: vscode.ExtensionContext): void {
 	statusBar.text = `$(chip) OfflineAssist`;
 	statusBar.tooltip = 'OfflineAssist — click to download a model';
 
+	const openChatStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 101);
+	openChatStatusBar.command = openChatCommandId;
+	openChatStatusBar.text = '$(comment-discussion) Open Chat';
+	openChatStatusBar.tooltip = 'OfflineAssist — open chat';
+
 	const provider = new OfflineAssistLanguageModelProvider(outputChannel, statusBar);
 
-	context.subscriptions.push(outputChannel, statusBar);
+	context.subscriptions.push(outputChannel, statusBar, openChatStatusBar);
 
 	if (!('registerLanguageModelChatProvider' in vscode.lm)) {
 		outputChannel.appendLine('The language model chat provider API is unavailable. Run this extension in VS Code Insiders with the chat provider proposal enabled.');
@@ -1239,6 +1244,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	);
 
 	statusBar.show();
+	openChatStatusBar.show();
 	outputChannel.appendLine('OfflineAssist language model provider registered.');
 	provider.refreshModels();
 	void vscode.commands.executeCommand('setContext', 'offlineAssist.registered', true);
