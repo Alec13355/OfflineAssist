@@ -2,6 +2,10 @@
 
 Offline Assist is a standalone VS Code extension that exposes Foundry Local chat-capable models through VS Code's language model picker.
 
+# UI Example 
+
+![UI Plan](UIPlan.png)
+
 What it does:
 
 - Lists chat-capable models from the local Foundry catalog.

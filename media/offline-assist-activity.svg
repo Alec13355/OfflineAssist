@@ -8,8 +8,8 @@
     .fill { fill: currentColor; }
   </style>
 
-  <!-- Uses currentColor so it can be tinted by the host app. Defaults to black. -->
-  <g color="#000000">
+  <!-- Uses currentColor so it can be tinted by the host app. -->
+  <g>
     <!-- Antenna -->
     <path class="stroke-sm" d="M64 24V15" />
     <circle class="fill" cx="64" cy="11" r="5" />
