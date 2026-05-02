@@ -4,7 +4,7 @@ Offline Assist is a standalone VS Code extension that exposes Foundry Local chat
 
 # UI Example 
 
-![UI Plan](UIPlan.png)
+![UI Plan](https://raw.githubusercontent.com/Alec13355/OfflineAssist/main/UIPlan.png)
 
 What it does:
 
