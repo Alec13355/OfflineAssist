@@ -50,6 +50,6 @@ jobs:
           fi
           npx @vscode/vsce publish \
             --pat "${VSCE_PAT}" \
-            --allow-proposed-apis chatProvider@4 \
+            --allow-proposed-apis chatProvider \
             --allow-missing-repository \
             --skip-license

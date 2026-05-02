@@ -16,7 +16,7 @@ What it does:
 ## Requirements
 
 - VS Code Insiders.
-- Proposed API access for `chatProvider@4`.
+- Proposed API access for `chatProvider`.
 - Foundry Local installed on your machine.
 - Node.js 18+.
 
