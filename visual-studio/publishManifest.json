@@ -1,0 +1,11 @@
+{
+  "publisher": "alecharrison",
+  "tags": ["AI", "offline", "local", "foundry", "huggingface", "chat", "llm"],
+  "categories": ["Other"],
+  "identity": {
+    "internalName": "offline-assist-vs"
+  },
+  "overview": "README.md",
+  "priceCategory": "free",
+  "public": true
+}

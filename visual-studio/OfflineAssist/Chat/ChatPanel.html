@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OfflineAssist Chat</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --fg: #1e1e1e; --bg: #ffffff; --border: #e0e0e0;
+  --btn-bg: #0078d4; --btn-fg: #ffffff; --btn-hover: #106ebe;
+  --input-bg: #f5f5f5; --input-border: #ccc; --desc: #717171;
+  --bubble-user-bg: #0078d4; --bubble-user-fg: #ffffff;
+  --bubble-ai-bg: #f0f0f0; --bubble-ai-border: #ddd;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #d4d4d4; --bg: #1e1e1e; --border: #3c3c3c;
+    --btn-bg: #0078d4; --btn-fg: #ffffff; --btn-hover: #1a8ad4;
+    --input-bg: #2d2d2d; --input-border: #555; --desc: #8a8a8a;
+    --bubble-user-bg: #0078d4; --bubble-user-fg: #ffffff;
+    --bubble-ai-bg: #2d2d2d; --bubble-ai-border: #3c3c3c;
+  }
+}
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg);
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+}
+#toolbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+}
+#modeRow, #modelRow {
+  display: flex; align-items: center; gap: 8px;
+}
+label { font-size: 12px; color: var(--desc); white-space: nowrap; }
+select {
+  flex: 1; background: var(--input-bg); color: var(--fg);
+  border: 1px solid var(--input-border); padding: 4px 6px;
+  font-size: 12px; border-radius: 2px;
+}
+#modelLegend { font-size: 11px; color: var(--desc); padding-left: 44px; }
+#clearBtn {
+  background: transparent; color: var(--desc);
+  border: 1px solid var(--border); padding: 4px 10px;
+  cursor: pointer; font-size: 12px; border-radius: 2px; white-space: nowrap;
+}
+#clearBtn:hover { background: var(--input-bg); }
+#messages {
+  flex: 1; overflow-y: auto; padding: 16px 12px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+#emptyState {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--desc); gap: 10px; text-align: center; padding: 24px;
+}
+.message { display: flex; flex-direction: column; gap: 4px; max-width: 88%; }
+.message.user { align-self: flex-end; align-items: flex-end; }
+.message.assistant { align-self: flex-start; align-items: flex-start; }
+.message-role {
+  font-size: 11px; color: var(--desc);
+  text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+}
+.message-bubble {
+  padding: 8px 12px; border-radius: 6px;
+  white-space: pre-wrap; word-break: break-word; line-height: 1.55;
+}
+.message.user .message-bubble { background: var(--bubble-user-bg); color: var(--bubble-user-fg); }
+.message.assistant .message-bubble {
+  background: var(--bubble-ai-bg); border: 1px solid var(--bubble-ai-border);
+}
+.cursor {
+  display: inline-block; width: 2px; height: .9em; background: currentColor;
+  animation: blink 1s step-end infinite; vertical-align: text-bottom; margin-left: 1px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+#inputArea {
+  border-top: 1px solid var(--border); padding: 10px 12px;
+  display: flex; gap: 8px; flex-shrink: 0;
+}
+#input {
+  flex: 1; background: var(--input-bg); color: var(--fg);
+  border: 1px solid var(--input-border); padding: 6px 10px;
+  border-radius: 4px; font-family: inherit; font-size: inherit;
+  resize: none; min-height: 36px; max-height: 140px; overflow-y: auto;
+}
+#input:focus { outline: 1px solid var(--btn-bg); border-color: var(--btn-bg); }
+#sendBtn {
+  background: var(--btn-bg); color: var(--btn-fg); border: none;
+  padding: 6px 16px; cursor: pointer; border-radius: 4px;
+  font-size: inherit; font-family: inherit; align-self: flex-end; min-width: 64px;
+}
+#sendBtn:hover { background: var(--btn-hover); }
+#sendBtn:disabled { opacity: .5; cursor: default; }
+#sendBtn.stop { background: #a31515; }
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <div id="modeRow">
+    <label for="modeSelect">Mode:</label>
+    <select id="modeSelect">
+      <option value="agent">Agent</option>
+      <option value="plan">Plan</option>
+      <option value="yolo">Yolo</option>
+    </select>
+  </div>
+  <div id="modelRow">
+    <label for="modelSelect">Model:</label>
+    <select id="modelSelect"><option value="">Loading models…</option></select>
+    <button id="clearBtn">Clear</button>
+  </div>
+  <div id="modelLegend">Format: <strong>backend • status</strong></div>
+</div>
+<div id="messages">
+  <div id="emptyState">
+    <span style="font-size:36px">🤖</span>
+    <span style="font-size:15px;font-weight:600">OfflineAssist Chat</span>
+    <span>Pick Agent, Plan, or Yolo — then choose a model and start chatting.<br>Your conversation stays on-device.</span>
+  </div>
+</div>
+<div id="inputArea">
+  <textarea id="input" rows="1" placeholder="Ask anything… (Enter to send, Shift+Enter for newline)"></textarea>
+  <button id="sendBtn">Send</button>
+</div>
+<script>
+// WebView2 ↔ C# bridge (same shape as the VS Code webview API)
+const vscode = {
+  postMessage: msg => window.chrome.webview.postMessage(JSON.stringify(msg))
+};
+
+const messagesEl = document.getElementById('messages');
+const inputEl    = document.getElementById('input');
+const sendBtn    = document.getElementById('sendBtn');
+const modelSel   = document.getElementById('modelSelect');
+const clearBtn   = document.getElementById('clearBtn');
+const emptyState = document.getElementById('emptyState');
+const modeSel    = document.getElementById('modeSelect');
+
+let allModels = [], streaming = false, activeBubble = null, currentMode = 'agent';
+const inputHistory = []; let historyIdx = -1, savedDraft = '';
+
+vscode.postMessage({ type: 'ready' });
+
+// Receive messages from C#
+window.chrome.webview.addEventListener('message', ev => {
+  const msg = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data;
+  if (msg.type === 'models') { allModels = msg.models || []; renderModels(); }
+  else if (msg.type === 'start') {
+    streaming = true; sendBtn.textContent = 'Stop'; sendBtn.classList.add('stop');
+    activeBubble = appendMessage('assistant', ''); scrollBottom();
+  } else if (msg.type === 'chunk') {
+    if (activeBubble) {
+      activeBubble.querySelector('.cursor')?.remove();
+      activeBubble.appendChild(document.createTextNode(msg.text));
+      const cur = document.createElement('span'); cur.className = 'cursor';
+      activeBubble.appendChild(cur); scrollBottom();
+    }
+  } else if (msg.type === 'done') {
+    streaming = false; sendBtn.textContent = 'Send'; sendBtn.classList.remove('stop');
+    activeBubble?.querySelector('.cursor')?.remove(); activeBubble = null;
+  } else if (msg.type === 'error') {
+    streaming = false; sendBtn.textContent = 'Send'; sendBtn.classList.remove('stop');
+    const target = activeBubble ?? appendMessage('assistant', ''); activeBubble = null;
+    target.querySelector('.cursor')?.remove(); target.textContent = '';
+    target.appendChild(document.createTextNode('⚠ ' + msg.message));
+    target.style.color = '#f48771';
+  }
+});
+
+sendBtn.addEventListener('click', () => streaming ? vscode.postMessage({ type: 'cancel' }) : send());
+clearBtn.addEventListener('click', () => {
+  while (messagesEl.firstChild) messagesEl.removeChild(messagesEl.firstChild);
+  messagesEl.appendChild(emptyState); emptyState.style.display = '';
+  vscode.postMessage({ type: 'clear' });
+});
+modeSel.addEventListener('change', () => { currentMode = modeSel.value; renderModels(); });
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!streaming) send(); return; }
+  if (e.key === 'ArrowUp' && inputHistory.length) {
+    e.preventDefault();
+    if (historyIdx === -1) savedDraft = inputEl.value;
+    historyIdx = Math.min(historyIdx + 1, inputHistory.length - 1);
+    setInput(inputHistory[inputHistory.length - 1 - historyIdx]);
+  } else if (e.key === 'ArrowDown' && historyIdx >= 0) {
+    e.preventDefault(); historyIdx--;
+    setInput(historyIdx === -1 ? savedDraft : inputHistory[inputHistory.length - 1 - historyIdx]);
+  }
+});
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+});
+
+function send() {
+  const text = inputEl.value.trim(), modelId = modelSel.value;
+  if (!text || !modelId) return;
+  if (!inputHistory.length || inputHistory[inputHistory.length - 1] !== text) {
+    inputHistory.push(text); if (inputHistory.length > 100) inputHistory.shift();
+  }
+  historyIdx = -1; savedDraft = '';
+  appendMessage('user', text); setInput(''); scrollBottom();
+  vscode.postMessage({ type: 'send', text, modelId, mode: currentMode });
+}
+
+function setInput(text) {
+  inputEl.value = text; inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+  inputEl.selectionStart = inputEl.selectionEnd = text.length;
+}
+
+function renderModels() {
+  const prev = modelSel.value;
+  const filtered = currentMode === 'plan' ? allModels : allModels.filter(m => m.supportsToolCalling);
+  if (!filtered.length) {
+    modelSel.innerHTML = '<option value="">' +
+      (currentMode === 'plan' ? 'No models available' : 'No tool-capable models for this mode') + '</option>';
+    return;
+  }
+  modelSel.innerHTML = filtered.map(m => {
+    const icon = m.supportsToolCalling ? '🛠 ' : '';
+    const status = m.isCached ? 'Local' : 'Needs download';
+    const size = typeof m.sizeMb === 'number' ? ' • ' + m.sizeMb + ' MB' : '';
+    return '<option value="' + esc(m.id) + '">' + icon + esc(m.name) + ' — ' + status + size + '</option>';
+  }).join('');
+  if (prev && [...modelSel.options].some(o => o.value === prev)) modelSel.value = prev;
+}
+
+function appendMessage(role, text) {
+  emptyState.style.display = 'none';
+  const wrap = document.createElement('div'); wrap.className = 'message ' + role;
+  const label = document.createElement('div'); label.className = 'message-role';
+  label.textContent = role === 'user' ? 'You' : 'Assistant';
+  const bubble = document.createElement('div'); bubble.className = 'message-bubble';
+  if (text) bubble.textContent = text;
+  wrap.appendChild(label); wrap.appendChild(bubble); messagesEl.appendChild(wrap);
+  return bubble;
+}
+
+function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>

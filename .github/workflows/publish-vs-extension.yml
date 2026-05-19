@@ -1,0 +1,86 @@
+name: Publish Visual Studio Extension
+
+on:
+  push:
+    tags:
+      - 'vs-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore visual-studio\OfflineAssist.sln
+
+      - name: Verify tag matches manifest version
+        if: startsWith(github.ref, 'refs/tags/vs-v')
+        shell: pwsh
+        run: |
+          $tagVersion = "${{ github.ref_name }}" -replace '^vs-v', ''
+          [xml]$manifest = Get-Content "visual-studio\OfflineAssist\source.extension.vsixmanifest"
+          $ns = @{ vs = "http://schemas.microsoft.com/developer/vsx-schema/2011" }
+          $manifestVersion = Select-Xml -Xml $manifest -XPath "//vs:Identity/@Version" -Namespace $ns | Select-Object -ExpandProperty Node | Select-Object -ExpandProperty Value
+          Write-Host "Tag: $tagVersion  |  Manifest: $manifestVersion"
+          if ($tagVersion -ne $manifestVersion) {
+            Write-Error "Tag version ($tagVersion) does not match manifest version ($manifestVersion)."
+            exit 1
+          }
+
+      - name: Build VSIX (Release)
+        run: msbuild visual-studio\OfflineAssist.sln /p:Configuration=Release /p:DeployExtension=false /m
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OfflineAssist-VS-${{ github.ref_name }}
+          path: visual-studio\OfflineAssist\bin\Release\*.vsix
+          if-no-files-found: error
+
+      - name: Publish to Visual Studio Marketplace
+        if: startsWith(github.ref, 'refs/tags/vs-v')
+        shell: pwsh
+        env:
+          VS_MARKETPLACE_PAT: ${{ secrets.VS_MARKETPLACE_PAT }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:VS_MARKETPLACE_PAT)) {
+            Write-Error "Missing VS_MARKETPLACE_PAT secret."
+            exit 1
+          }
+
+          $vsixPath = Get-ChildItem "visual-studio\OfflineAssist\bin\Release" -Filter "*.vsix" |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          # Locate VsixPublisher from VS Build Tools
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsixPublisher = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VSSDK `
+            -find "VSSDK\VisualStudioIntegration\Tools\Bin\VsixPublisher.exe"
+
+          if (-not $vsixPublisher) {
+            Write-Error "VsixPublisher.exe not found. Ensure the VSSDK component is installed."
+            exit 1
+          }
+
+          Write-Host "Publishing $vsixPath with VsixPublisher at $vsixPublisher"
+          & $vsixPublisher publish `
+            -payload $vsixPath `
+            -publishManifest "visual-studio\publishManifest.json" `
+            -personalAccessToken $env:VS_MARKETPLACE_PAT
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "VsixPublisher exited with code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
