@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import { FoundryLocalManager, type IModel } from 'foundry-local-sdk';
+import { FoundryLocalManager, type IModel, type ChatClient } from 'foundry-local-sdk';
 import { ChatPanel, type IChatModelProvider } from './chatPanel.js';
 
 const providerVendor = 'offline-assist';
@@ -1111,7 +1111,7 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 		};
 	}
 
-	private applyModelConfiguration(chatClient: { settings: Record<string, unknown> }, configuration: vscode.ProvideLanguageModelChatResponseOptions['modelConfiguration']): void {
+	private applyModelConfiguration(chatClient: ChatClient, configuration: vscode.ProvideLanguageModelChatResponseOptions['modelConfiguration']): void {
 		if (!configuration) {
 			return;
 		}
