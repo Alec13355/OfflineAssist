@@ -11,7 +11,16 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: darwin-arm64
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win32-x64
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +39,7 @@ jobs:
 
       - name: Verify tag matches package version
         if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
           PKG_VERSION=$(node -p "require('./package.json').version")
@@ -43,12 +53,14 @@ jobs:
       - name: Publish to Marketplace
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        shell: bash
         run: |
           if [ -z "${VSCE_PAT}" ]; then
             echo "Missing VSCE_PAT secret."
             exit 1
           fi
           npx @vscode/vsce publish \
+            --target ${{ matrix.target }} \
             --pat "${VSCE_PAT}" \
             --allow-proposed-apis chatProvider \
             --allow-missing-repository \

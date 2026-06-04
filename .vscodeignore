@@ -1,0 +1,9 @@
+.vscode/**
+.claude/**
+.github/**
+src/**
+visual-studio/**
+tsconfig.json
+UIPlan.png
+*.vsix
+.gitignore
