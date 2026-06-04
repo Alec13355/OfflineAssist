@@ -45,15 +45,22 @@ export class ChatPanel {
 		this.panel = panel;
 		this.panel.webview.html = this.getHtml();
 		this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-		this.panel.webview.onDidReceiveMessage(async (msg: { type: string; text?: string; modelId?: string; mode?: 'agent' | 'plan' | 'yolo' }) => {
+		this.panel.webview.onDidReceiveMessage(async (msg: { type: string; text?: string; modelId?: string; mode?: 'agent' | 'plan' | 'yolo'; key?: string; value?: string }) => {
 			if (msg.type === 'ready') {
 				await this.sendModels();
+				this.sendSettings();
 			} else if (msg.type === 'send' && msg.text && msg.modelId && msg.mode) {
 				await this.handleSend(msg.modelId, msg.mode, msg.text);
 			} else if (msg.type === 'cancel') {
 				this.cancelSource?.cancel();
 			} else if (msg.type === 'clear') {
 				this.history = [];
+			} else if (msg.type === 'getSettings') {
+				this.sendSettings();
+			} else if (msg.type === 'saveSetting' && typeof msg.key === 'string') {
+				const config = vscode.workspace.getConfiguration('offlineAssist');
+				await config.update(msg.key, msg.value ?? '', vscode.ConfigurationTarget.Global);
+				this.sendSettings();
 			}
 		}, null, this.disposables);
 	}
@@ -65,6 +72,12 @@ export class ChatPanel {
 		} catch (err) {
 			void this.panel.webview.postMessage({ type: 'models', models: [] });
 		}
+	}
+
+	private sendSettings(): void {
+		const config = vscode.workspace.getConfiguration('offlineAssist');
+		const libraryPath = config.get<string>('libraryPath') ?? '';
+		void this.panel.webview.postMessage({ type: 'settings', libraryPath });
 	}
 
 	private async handleSend(modelId: string, mode: 'agent' | 'plan' | 'yolo', text: string): Promise<void> {
@@ -158,7 +171,7 @@ body {
 	font-size: 12px;
 	border-radius: 2px;
 }
-#clearBtn {
+#clearBtn, #gearBtn {
 	background: transparent;
 	color: var(--vscode-descriptionForeground);
 	border: 1px solid var(--vscode-panel-border);
@@ -168,7 +181,38 @@ body {
 	border-radius: 2px;
 	white-space: nowrap;
 }
-#clearBtn:hover { background: var(--vscode-toolbar-hoverBackground); }
+#clearBtn:hover, #gearBtn:hover { background: var(--vscode-toolbar-hoverBackground); }
+#gearBtn { padding: 4px 8px; font-size: 14px; line-height: 1; }
+#gearBtn.active { border-color: var(--vscode-focusBorder); color: var(--vscode-foreground); }
+#settingsPanel {
+	border-bottom: 1px solid var(--vscode-panel-border);
+	padding: 10px 12px;
+	background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+	display: none;
+	flex-direction: column;
+	gap: 8px;
+	flex-shrink: 0;
+}
+#settingsPanel.open { display: flex; }
+.settings-row { display: flex; flex-direction: column; gap: 4px; }
+.settings-label { font-size: 12px; font-weight: 600; }
+.settings-desc { font-size: 11px; color: var(--vscode-descriptionForeground); }
+.settings-input {
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+	padding: 4px 8px;
+	border-radius: 2px;
+	font-size: 12px;
+	font-family: var(--vscode-editor-font-family, monospace);
+}
+.settings-input:focus { outline: 1px solid var(--vscode-focusBorder); border-color: var(--vscode-focusBorder); }
+.settings-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.settings-btn { padding: 4px 12px; border: none; border-radius: 2px; cursor: pointer; font-size: 12px; font-family: inherit; }
+.settings-btn.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+.settings-btn.primary:hover { background: var(--vscode-button-hoverBackground); }
+.settings-btn.secondary { background: transparent; color: var(--vscode-descriptionForeground); border: 1px solid var(--vscode-panel-border); }
+.settings-btn.secondary:hover { background: var(--vscode-toolbar-hoverBackground); }
 #messages {
 	flex: 1;
 	overflow-y: auto;
@@ -277,6 +321,18 @@ body {
 		<label for="modelSelect">Model:</label>
 		<select id="modelSelect"><option value="">Loading models…</option></select>
 		<button id="clearBtn">Clear chat</button>
+		<button id="gearBtn" title="Settings">&#9881;</button>
+	</div>
+</div>
+<div id="settingsPanel">
+	<div class="settings-row">
+		<label class="settings-label" for="libraryPathInput">Foundry Library Path</label>
+		<span class="settings-desc">Directory containing native Foundry Local Core libraries. Leave blank to auto-detect from the extension folder.</span>
+		<input id="libraryPathInput" class="settings-input" type="text" placeholder="(auto-detect)" />
+	</div>
+	<div class="settings-actions">
+		<button class="settings-btn secondary" id="cancelSettingsBtn">Cancel</button>
+		<button class="settings-btn primary" id="saveSettingsBtn">Save</button>
 	</div>
 </div>
 <div id="messages">
@@ -299,6 +355,11 @@ const modelSelect = document.getElementById('modelSelect');
 const clearBtn = document.getElementById('clearBtn');
 const emptyState = document.getElementById('emptyState');
 const modeSelect = document.getElementById('modeSelect');
+const gearBtn = document.getElementById('gearBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+const libraryPathInput = document.getElementById('libraryPathInput');
+const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
 let currentMode = 'agent';
 let allModels = [];
 let streaming = false;
@@ -349,6 +410,8 @@ window.addEventListener('message', e => {
 		target.textContent = '';
 		target.appendChild(document.createTextNode('⚠ Error: ' + msg.message));
 		target.style.color = 'var(--vscode-inputValidation-errorForeground, #f48771)';
+	} else if (msg.type === 'settings') {
+		libraryPathInput.value = msg.libraryPath ?? '';
 	}
 });
 
@@ -396,6 +459,26 @@ clearBtn.addEventListener('click', () => {
 
 modeSelect.addEventListener('change', () => {
 	setMode(modeSelect.value);
+});
+
+gearBtn.addEventListener('click', () => {
+	const opening = !settingsPanel.classList.contains('open');
+	settingsPanel.classList.toggle('open', opening);
+	gearBtn.classList.toggle('active', opening);
+	if (opening) {
+		vscode.postMessage({ type: 'getSettings' });
+	}
+});
+
+cancelSettingsBtn.addEventListener('click', () => {
+	settingsPanel.classList.remove('open');
+	gearBtn.classList.remove('active');
+});
+
+saveSettingsBtn.addEventListener('click', () => {
+	vscode.postMessage({ type: 'saveSetting', key: 'libraryPath', value: libraryPathInput.value.trim() });
+	settingsPanel.classList.remove('open');
+	gearBtn.classList.remove('active');
 });
 
 function send() {

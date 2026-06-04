@@ -32,6 +32,7 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 	constructor(
 		private readonly outputChannel: vscode.OutputChannel,
 		private readonly statusBar: vscode.StatusBarItem,
+		private readonly extensionUri: vscode.Uri,
 	) {}
 
 	public async provideLanguageModelChatInformation(_options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
@@ -110,6 +111,13 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 	public refreshModels(): void {
 		this.modelCache.clear();
 		this.onDidChangeEmitter.fire();
+	}
+
+	public resetManager(): void {
+		this.manager = undefined;
+		this.executionProvidersPromise = undefined;
+		this.modelCache.clear();
+		this.outputChannel.appendLine('Foundry Local manager reset (configuration changed).');
 	}
 
 	public async getModels(): Promise<Array<{ id: string; name: string; isCached: boolean; sizeMb?: number; supportsToolCalling: boolean }>> {
@@ -925,12 +933,25 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 		].join('\n\n');
 	}
 
+	private resolveLibraryPath(): string | undefined {
+		const config = vscode.workspace.getConfiguration('offlineAssist');
+		const userPath = config.get<string>('libraryPath')?.trim();
+		if (userPath) {
+			return userPath;
+		}
+
+		// Auto-detect bundled native libraries from the extension's install directory
+		const platformDir = `${process.platform}-${process.arch}`;
+		return path.join(this.extensionUri.fsPath, 'node_modules', 'foundry-local-sdk', 'foundry-local-core', platformDir);
+	}
+
 	private getManager(): FoundryLocalManager {
 		if (!this.manager) {
 			const config = vscode.workspace.getConfiguration('offlineAssist');
 			const appName = config.get<string>('appName')?.trim() || 'offline-assist';
-			this.manager = FoundryLocalManager.create({ appName });
-			this.outputChannel.appendLine(`Initialized Foundry Local manager with appName='${appName}'.`);
+			const libraryPath = this.resolveLibraryPath();
+			this.manager = FoundryLocalManager.create({ appName, libraryPath });
+			this.outputChannel.appendLine(`Initialized Foundry Local manager with appName='${appName}'${libraryPath ? `, libraryPath='${libraryPath}'` : ''}.`);
 		}
 
 		return this.manager;
@@ -1226,7 +1247,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	openChatStatusBar.text = '$(comment-discussion) Open Chat';
 	openChatStatusBar.tooltip = 'OfflineAssist — open chat';
 
-	const provider = new OfflineAssistLanguageModelProvider(outputChannel, statusBar);
+	const provider = new OfflineAssistLanguageModelProvider(outputChannel, statusBar, context.extensionUri);
 
 	context.subscriptions.push(outputChannel, statusBar, openChatStatusBar);
 
@@ -1241,6 +1262,11 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(downloadModelCommandId, async () => provider.downloadModelFromPicker()),
 		vscode.commands.registerCommand(refreshModelsCommandId, () => provider.refreshModels()),
 		vscode.commands.registerCommand(openChatCommandId, () => ChatPanel.createOrShow(provider)),
+		vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('offlineAssist.libraryPath') || e.affectsConfiguration('offlineAssist.appName')) {
+				provider.resetManager();
+			}
+		}),
 	);
 
 	statusBar.show();
