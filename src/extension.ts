@@ -935,7 +935,8 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 
 	private getLibraryPath(): string {
 		const platformDir = `${process.platform}-${process.arch}`;
-		return path.join(this.extensionUri.fsPath, 'node_modules', 'foundry-local-sdk', 'foundry-local-core', platformDir);
+		const ext = process.platform === 'win32' ? '.dll' : process.platform === 'darwin' ? '.dylib' : '.so';
+		return path.join(this.extensionUri.fsPath, 'node_modules', 'foundry-local-sdk', 'foundry-local-core', platformDir, `Microsoft.AI.Foundry.Local.Core${ext}`);
 	}
 
 	private getManager(): FoundryLocalManager {
