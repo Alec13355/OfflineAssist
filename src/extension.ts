@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import * as cp from 'node:child_process';
-import * as fs from 'node:fs';
 import { FoundryLocalManager, type IModel, type ChatClient } from 'foundry-local-sdk';
 import { ChatPanel, type IChatModelProvider } from './chatPanel.js';
 
@@ -34,6 +32,7 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 	constructor(
 		private readonly outputChannel: vscode.OutputChannel,
 		private readonly statusBar: vscode.StatusBarItem,
+		private readonly extensionUri: vscode.Uri,
 	) {}
 
 	public async provideLanguageModelChatInformation(_options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
@@ -934,57 +933,18 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 		].join('\n\n');
 	}
 
-	private findFoundryBinary(): string | undefined {
-		const config = vscode.workspace.getConfiguration('offlineAssist');
-		const userPath = config.get<string>('foundryPath')?.trim();
-		if (userPath) {
-			return userPath;
-		}
-
-		const candidates = ['/opt/homebrew/bin/foundry', '/usr/local/bin/foundry', 'foundry'];
-		for (const candidate of candidates) {
-			try {
-				if (path.isAbsolute(candidate)) {
-					fs.accessSync(candidate, fs.constants.X_OK);
-				}
-				return candidate;
-			} catch {
-				continue;
-			}
-		}
-		return undefined;
-	}
-
-	private resolveServiceEndpoint(): string | undefined {
-		const foundry = this.findFoundryBinary();
-		if (!foundry) {
-			this.outputChannel.appendLine('Foundry binary not found. Set offlineAssist.foundryPath to the path of your foundry binary.');
-			return undefined;
-		}
-
-		try {
-			const output = cp.execFileSync(foundry, ['service', 'status'], { encoding: 'utf8', timeout: 5000 });
-			const match = output.match(/https?:\/\/[^\s/]+/);
-			if (match) {
-				const endpoint = match[0];
-				this.outputChannel.appendLine(`Discovered Foundry service endpoint: ${endpoint}`);
-				return endpoint;
-			}
-			this.outputChannel.appendLine(`Foundry service status output did not contain a URL:\n${output.trim()}`);
-		} catch (err) {
-			this.outputChannel.appendLine(`Could not run foundry service status: ${err instanceof Error ? err.message : String(err)}`);
-		}
-
-		return undefined;
+	private getLibraryPath(): string {
+		const platformDir = `${process.platform}-${process.arch}`;
+		return path.join(this.extensionUri.fsPath, 'node_modules', 'foundry-local-sdk', 'foundry-local-core', platformDir);
 	}
 
 	private getManager(): FoundryLocalManager {
 		if (!this.manager) {
 			const config = vscode.workspace.getConfiguration('offlineAssist');
 			const appName = config.get<string>('appName')?.trim() || 'offline-assist';
-			const serviceEndpoint = this.resolveServiceEndpoint();
-			this.manager = FoundryLocalManager.create({ appName, serviceEndpoint });
-			this.outputChannel.appendLine(`Initialized Foundry Local manager with appName='${appName}'${serviceEndpoint ? `, serviceEndpoint='${serviceEndpoint}'` : ' (no service endpoint — foundry service may not be running)'}.`);
+			const libraryPath = this.getLibraryPath();
+			this.manager = FoundryLocalManager.create({ appName, libraryPath });
+			this.outputChannel.appendLine(`Initialized Foundry Local manager with appName='${appName}', libraryPath='${libraryPath}'.`);
 		}
 
 		return this.manager;
@@ -1280,7 +1240,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	openChatStatusBar.text = '$(comment-discussion) Open Chat';
 	openChatStatusBar.tooltip = 'OfflineAssist — open chat';
 
-	const provider = new OfflineAssistLanguageModelProvider(outputChannel, statusBar);
+	const provider = new OfflineAssistLanguageModelProvider(outputChannel, statusBar, context.extensionUri);
 
 	context.subscriptions.push(outputChannel, statusBar, openChatStatusBar);
 
@@ -1296,7 +1256,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(refreshModelsCommandId, () => provider.refreshModels()),
 		vscode.commands.registerCommand(openChatCommandId, () => ChatPanel.createOrShow(provider)),
 		vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('offlineAssist.foundryPath') || e.affectsConfiguration('offlineAssist.appName')) {
+			if (e.affectsConfiguration('offlineAssist.appName')) {
 				provider.resetManager();
 			}
 		}),

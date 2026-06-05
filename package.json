@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/Alec13355/OfflineAssist.git"
   },
-  "version": "0.1.8",
+  "version": "0.1.9",
   "publisher": "alecharrison",
   "type": "module",
   "engines": {
@@ -71,11 +71,6 @@
           "type": "string",
           "default": "offline-assist",
           "description": "Application name passed to the Foundry Local SDK when initializing the local runtime."
-        },
-        "offlineAssist.foundryPath": {
-          "type": "string",
-          "default": "",
-          "description": "Path to the foundry binary (e.g. /opt/homebrew/bin/foundry). Leave blank to auto-detect from common locations. The extension uses this to discover the running Foundry Local service endpoint."
         }
       }
     },
