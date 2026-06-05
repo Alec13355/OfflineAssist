@@ -57,9 +57,9 @@ export class ChatPanel {
 				this.history = [];
 			} else if (msg.type === 'getSettings') {
 				this.sendSettings();
-			} else if (msg.type === 'saveSetting' && typeof msg.key === 'string') {
+			} else if (msg.type === 'saveSetting' && msg.key === 'foundryPath') {
 				const config = vscode.workspace.getConfiguration('offlineAssist');
-				await config.update(msg.key, msg.value ?? '', vscode.ConfigurationTarget.Global);
+				await config.update('foundryPath', msg.value ?? '', vscode.ConfigurationTarget.Global);
 				this.sendSettings();
 			}
 		}, null, this.disposables);
@@ -76,8 +76,8 @@ export class ChatPanel {
 
 	private sendSettings(): void {
 		const config = vscode.workspace.getConfiguration('offlineAssist');
-		const libraryPath = config.get<string>('libraryPath') ?? '';
-		void this.panel.webview.postMessage({ type: 'settings', libraryPath });
+		const foundryPath = config.get<string>('foundryPath') ?? '';
+		void this.panel.webview.postMessage({ type: 'settings', foundryPath });
 	}
 
 	private async handleSend(modelId: string, mode: 'agent' | 'plan' | 'yolo', text: string): Promise<void> {
@@ -326,9 +326,9 @@ body {
 </div>
 <div id="settingsPanel">
 	<div class="settings-row">
-		<label class="settings-label" for="libraryPathInput">Foundry Library Path</label>
-		<span class="settings-desc">Directory containing native Foundry Local Core libraries. Leave blank to auto-detect from the extension folder.</span>
-		<input id="libraryPathInput" class="settings-input" type="text" placeholder="(auto-detect)" />
+		<label class="settings-label" for="foundryPathInput">Foundry Binary Path</label>
+		<span class="settings-desc">Path to the foundry binary (e.g. /opt/homebrew/bin/foundry). Leave blank to auto-detect. The extension uses this to discover the running Foundry Local service.</span>
+		<input id="foundryPathInput" class="settings-input" type="text" placeholder="(auto-detect)" />
 	</div>
 	<div class="settings-actions">
 		<button class="settings-btn secondary" id="cancelSettingsBtn">Cancel</button>
@@ -357,7 +357,7 @@ const emptyState = document.getElementById('emptyState');
 const modeSelect = document.getElementById('modeSelect');
 const gearBtn = document.getElementById('gearBtn');
 const settingsPanel = document.getElementById('settingsPanel');
-const libraryPathInput = document.getElementById('libraryPathInput');
+const foundryPathInput = document.getElementById('foundryPathInput');
 const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
 let currentMode = 'agent';
@@ -411,7 +411,7 @@ window.addEventListener('message', e => {
 		target.appendChild(document.createTextNode('⚠ Error: ' + msg.message));
 		target.style.color = 'var(--vscode-inputValidation-errorForeground, #f48771)';
 	} else if (msg.type === 'settings') {
-		libraryPathInput.value = msg.libraryPath ?? '';
+		foundryPathInput.value = msg.foundryPath ?? '';
 	}
 });
 
@@ -476,7 +476,7 @@ cancelSettingsBtn.addEventListener('click', () => {
 });
 
 saveSettingsBtn.addEventListener('click', () => {
-	vscode.postMessage({ type: 'saveSetting', key: 'libraryPath', value: libraryPathInput.value.trim() });
+	vscode.postMessage({ type: 'saveSetting', key: 'foundryPath', value: foundryPathInput.value.trim() });
 	settingsPanel.classList.remove('open');
 	gearBtn.classList.remove('active');
 });

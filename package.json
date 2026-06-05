@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/Alec13355/OfflineAssist.git"
   },
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "alecharrison",
   "type": "module",
   "engines": {
@@ -72,10 +72,10 @@
           "default": "offline-assist",
           "description": "Application name passed to the Foundry Local SDK when initializing the local runtime."
         },
-        "offlineAssist.libraryPath": {
+        "offlineAssist.foundryPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the directory containing Foundry Local Core native libraries (Microsoft.AI.Foundry.Local.Core, onnxruntime, onnxruntime-genai). Set this if the SDK cannot auto-discover binaries on your machine (common on macOS)."
+          "description": "Path to the foundry binary (e.g. /opt/homebrew/bin/foundry). Leave blank to auto-detect from common locations. The extension uses this to discover the running Foundry Local service endpoint."
         }
       }
     },
