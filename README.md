@@ -47,6 +47,10 @@ Optional command:
 
 - `OfflineAssist: Download Chat Model` pre-downloads a model from a quick pick.
 
+## Extends Copilot
+As you can see this also expands copilot to give it access to all of the offline models that Foundry Local gives you too! 
+![UI Plan](https://raw.githubusercontent.com/Alec13355/OfflineAssist/main/image.png)
+
 ## Notes
 
 - This project intentionally handles text chat only.

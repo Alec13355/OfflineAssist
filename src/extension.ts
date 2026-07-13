@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
+import { spawn } from 'node:child_process';
 import { FoundryLocalManager, type IModel, type ChatClient } from 'foundry-local-sdk';
 import { ChatPanel, type IChatModelProvider } from './chatPanel.js';
 
@@ -17,7 +18,7 @@ type OpenAIChatMessage = {
 type ChatMode = 'agent' | 'plan' | 'yolo';
 
 type ToolCall = {
-	tool: 'read_file' | 'list_files' | 'write_file' | 'replace_in_file';
+	tool: 'read_file' | 'list_files' | 'write_file' | 'replace_in_file' | 'run_command';
 	args: Record<string, unknown>;
 };
 
@@ -239,7 +240,13 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 				return undefined;
 			}
 
-			if (parsed.tool !== 'read_file' && parsed.tool !== 'list_files' && parsed.tool !== 'write_file' && parsed.tool !== 'replace_in_file') {
+			if (
+				parsed.tool !== 'read_file'
+				&& parsed.tool !== 'list_files'
+				&& parsed.tool !== 'write_file'
+				&& parsed.tool !== 'replace_in_file'
+				&& parsed.tool !== 'run_command'
+			) {
 				return undefined;
 			}
 
@@ -259,6 +266,9 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 			}
 			if (call.tool === 'write_file') {
 				return await this.toolWriteFile(call.args);
+			}
+			if (call.tool === 'run_command') {
+				return await this.toolRunCommand(call.args);
 			}
 			return await this.toolReplaceInFile(call.args);
 		} catch (error) {
@@ -315,8 +325,94 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 		return `Updated ${relativePath} by replacing one match.`;
 	}
 
+	private async toolRunCommand(args: Record<string, unknown>): Promise<string> {
+		const command = this.requireStringArg(args, 'command');
+		const cwdArg = typeof args.cwd === 'string' && args.cwd.trim() ? args.cwd : '.';
+		const timeoutRaw = this.optionalNumberArg(args, 'timeoutMs');
+		const timeoutMs = Math.min(120_000, Math.max(1_000, Math.floor(timeoutRaw ?? 15_000)));
+		const maxOutputChars = 16_000;
+
+		const cwdUri = await this.resolvePathWithRootFallback(cwdArg, vscode.FileType.Directory);
+		const cwd = cwdUri.fsPath;
+
+		const result = await new Promise<{
+			exitCode: number | null;
+			signal: NodeJS.Signals | null;
+			stdout: string;
+			stderr: string;
+			timedOut: boolean;
+		}>((resolve, reject) => {
+			const child = spawn(command, {
+				cwd,
+				shell: true,
+				stdio: ['ignore', 'pipe', 'pipe'],
+			});
+
+			let stdout = '';
+			let stderr = '';
+			let timedOut = false;
+
+			child.stdout.on('data', chunk => {
+				if (stdout.length >= maxOutputChars) {
+					return;
+				}
+				stdout += String(chunk);
+				if (stdout.length > maxOutputChars) {
+					stdout = `${stdout.slice(0, maxOutputChars)}\n...[stdout truncated]`;
+				}
+			});
+
+			child.stderr.on('data', chunk => {
+				if (stderr.length >= maxOutputChars) {
+					return;
+				}
+				stderr += String(chunk);
+				if (stderr.length > maxOutputChars) {
+					stderr = `${stderr.slice(0, maxOutputChars)}\n...[stderr truncated]`;
+				}
+			});
+
+			const timer = setTimeout(() => {
+				timedOut = true;
+				child.kill('SIGTERM');
+			}, timeoutMs);
+
+			child.once('error', error => {
+				clearTimeout(timer);
+				reject(error);
+			});
+
+			child.once('close', (exitCode, signal) => {
+				clearTimeout(timer);
+				resolve({
+					exitCode,
+					signal,
+					stdout: stdout.trimEnd(),
+					stderr: stderr.trimEnd(),
+					timedOut,
+				});
+			});
+		});
+
+		const header = [
+			`Command: ${command}`,
+			`CWD: ${cwdArg}`,
+			`Exit code: ${result.exitCode ?? 'null'}`,
+			result.signal ? `Signal: ${result.signal}` : undefined,
+			result.timedOut ? `Timed out after ${timeoutMs}ms` : undefined,
+		].filter(Boolean).join('\n');
+
+		const stdoutSection = `STDOUT:\n${result.stdout || '(empty)'}`;
+		const stderrSection = `STDERR:\n${result.stderr || '(empty)'}`;
+		return `${header}\n\n${stdoutSection}\n\n${stderrSection}`;
+	}
+
 	private async resolveWorkspacePath(relativePath: string): Promise<vscode.Uri> {
 		const workspaceRoot = await this.getPreferredWorkspaceRoot();
+		const normalizedInput = path.normalize(relativePath);
+		if (path.isAbsolute(normalizedInput)) {
+			return vscode.Uri.file(normalizedInput);
+		}
 
 		const cleanRelative = relativePath.replace(/^\/+/, '');
 		const resolved = path.resolve(workspaceRoot, cleanRelative);
@@ -674,8 +770,9 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 			'TOOL EXECUTION FORMAT FOR THIS EXTENSION:',
 			'When you decide to use a tool, respond with exactly one fenced code block and no extra text, e.g.',
 			'```tool {"tool":"read_file","args":{"path":"README.md"}} ```',
-			'Tools available: read_file, list_files, write_file, replace_in_file.',
-			'Paths are workspace-root relative.',
+			'If the user asks to list files or run a local command, do not claim you cannot execute tools. Use list_files or run_command.',
+			'Tools available: read_file, list_files, write_file, replace_in_file, run_command.',
+			'Paths may be workspace-root relative or absolute.',
 			'',
 			'Instruction context follows:',
 			instructionContext,
@@ -794,8 +891,9 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 			'TOOL EXECUTION FORMAT FOR THIS EXTENSION:',
 			'When you decide to use a tool, respond with exactly one fenced code block and no extra text, e.g.',
 			'```tool {"tool":"read_file","args":{"path":"README.md"}} ```',
-			'Tools available: read_file, list_files, write_file, replace_in_file.',
-			'Paths are workspace-root relative.',
+			'If the user asks to list files or run a local command, do not claim you cannot execute tools. Use list_files or run_command.',
+			'Tools available: read_file, list_files, write_file, replace_in_file, run_command.',
+			'Paths may be workspace-root relative or absolute.',
 			'',
 			'Instruction context follows:',
 			instructionContext,
@@ -925,8 +1023,9 @@ class OfflineAssistLanguageModelProvider implements vscode.LanguageModelChatProv
 			'TOOL EXECUTION FORMAT FOR THIS EXTENSION:',
 			'When you decide to use a tool, respond with exactly one fenced code block and no extra text, e.g.',
 			'```tool {"tool":"read_file","args":{"path":"README.md"}} ```',
-			'Tools available: read_file, list_files, write_file, replace_in_file.',
-			'Paths are workspace-root relative.',
+			'If the user asks to list files or run a local command, do not claim you cannot execute tools. Use list_files or run_command.',
+			'Tools available: read_file, list_files, write_file, replace_in_file, run_command.',
+			'Paths may be workspace-root relative or absolute.',
 			'',
 			'Instruction context follows:',
 			instructionContext,
