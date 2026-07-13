@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/Alec13355/OfflineAssist.git"
   },
-  "version": "0.1.10",
+  "version": "0.1.11",
   "publisher": "alecharrison",
   "type": "module",
   "engines": {

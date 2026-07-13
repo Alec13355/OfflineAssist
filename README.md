@@ -54,5 +54,5 @@ As you can see this also expands copilot to give it access to all of the offline
 ## Notes
 
 - This project intentionally handles text chat only.
-- It does not yet bridge VS Code tool-calling to Foundry Local tool-calling.
+- It includes built-in workspace tools (`read_file`, `list_files`, `write_file`, `replace_in_file`, `run_command`) for the OfflineAssist chat panel.
 - Non-chat models such as transcription and embeddings are filtered out of the picker.
